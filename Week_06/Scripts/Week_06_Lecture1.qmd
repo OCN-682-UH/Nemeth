@@ -1,0 +1,22 @@
+---
+title: "Lecture 1 - Intro to Quarto"
+author: "Cameron Nemeth"
+format: html
+editor: visual
+warning: false
+---
+
+### My document
+
+```{r}
+# Load libraries
+library(palmerpenguins)
+library(tidyverse)
+
+Penguins <- penguins
+```
+
+The dataset has `r nrow(Penguins)` rows and `r ncol(Penguins)` columns. The number of distinct species is `r n_distinct(Penguins$species)` that come from `r n_distinct(Penguins$island)` different islands. The mean body mass is `r round(mean(Penguins$body_mass_g, na.rm = TRUE), 2)` g, with a minimum body size of `r round(max(Penguins$body_mass_g, na.rm = TRUE), 2)` g. 
+
+
+

@@ -1,0 +1,63 @@
+---
+title: "Lecture 1 - Intro to Quarto"
+author: "Cameron Nemeth"
+format:
+  html:
+    code-fold: true              # code hidden by default, with a toggle button
+    code-summary: "Show code"    # customize the button label
+editor: visual
+warning: false
+knitr:
+  opts_chunk:
+    fig.path: "Week_06/Output/" ## added the ../ because your qmd folder is in your scripts folder so we need to go up one directory and then into your output folder
+---
+
+### My document
+
+```{r}
+# Load libraries
+library(palmerpenguins)
+library(tidyverse)
+library(kableExtra)
+
+
+Penguins <- penguins
+```
+
+The dataset has `r nrow(Penguins)` rows and `r ncol(Penguins)` columns. The number of distinct species is `r n_distinct(Penguins$species)` that come from `r n_distinct(Penguins$island)` different islands. The mean body mass is `r round(mean(Penguins$body_mass_g, na.rm = TRUE), 2)` g, with a minimum body size of `r round(max(Penguins$body_mass_g, na.rm = TRUE), 2)` g. 
+
+```{r}
+#| fig-width: 6
+#| fig-height: 4
+#| fig-align: "center"
+#| label: Penguins
+#| fig-cap: "This is my figure"
+Plot <- ggplot(Penguins,
+                aes(body_mass_g, bill_length_mm)) +
+        geom_point() +
+        theme_bw()
+Plot
+```
+```{r}
+penguins |>
+  group_by(species) |>
+  summarise(billmean = mean(bill_length_mm, na.rm = TRUE)) |>
+  kbl()  |> # make it a kable table
+  kable_classic() |> # add a theme
+  row_spec(2, bold = TRUE, color = "white", background = "red") |> # highlight row 2
+  kable_styling(full_width = FALSE) # don't make it so wide
+```
+
+```{r}
+#| label: fig-penguin-bill #label things starting with "fig-" and "tbl-" if you are going to call back to them with markdown text to auto-number(see below)
+#| fig-cap: "Bill length vs. bill depth for three penguin species."
+#| echo: false
+
+ggplot(penguins, aes(x = bill_depth_mm, y = bill_length_mm, color = species)) +
+  geom_point() +
+  scale_color_viridis_d()
+```
+As shown in @fig-penguin-bill, bill dimensions differ clearly by species.
+
+
+

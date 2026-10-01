@@ -1,0 +1,96 @@
+---
+title: "Week 6 homework - Intro to Quarto"
+author: "Cameron Nemeth"
+format:
+  html:
+    code-fold: true              # code hidden by default, with a toggle button
+    code-summary: "Show code"    # customize the button label
+    mainfont: "Times new roman" # main body text consistent with my usual manuscripts
+    fontsize: 12pt # main font sizw
+    fontcolor: black # main font color
+    embed-resources: true # avoids the extra folders by placing images, scripts etc into the HTML itself 
+editor: visual
+warning: false
+theme: minty
+---
+
+# Create an aesthetically pleasing quarto output containing at least one table and one figure
+
+```{r}
+#| echo: false
+# Load libraries
+library(palmerpenguins)
+library(tidyverse)
+library(kableExtra)
+library(here)
+
+
+Penguins <- penguins
+```
+
+
+# Create one figure using the penguin data
+Be sure to make the figure _aesthetically pleasing_ and **publication ready**! Some things to consider are:
+
+- Clear titles and legends
+- Legible fonts
+- Nice themes
+```{r}
+#| fig-width: 6
+#| fig-height: 4
+#| fig-align: "center"
+#| label: fig-BillDepth-BillLength-Sex
+#| fig-cap: "A scatterplot depicting the relationship between bill length and depth for adelie penguins. Blue points represent male penguins and pink points represent females. The solid colored lines are the best fit ordinary least squares linear regressions, with the 95% confidence intervals for the regression lines shown by the grey shading."
+Plot <- Penguins |> # take Penguns dataframe
+  filter(species == "Adelie", !is.na(sex)) |> #Keep only adelie penguins and remove any sex which is unknown
+  ggplot(aes(bill_length_mm, bill_depth_mm, color = sex)) + #set color here so both points and lines get it. 
+  geom_point(aes(color = sex)) + # Color points by sex. 
+  geom_smooth(method = "lm") + # OLS linear regression. Shading set to 95% CI by defealt. 
+  scale_color_manual(values = c(female = "deeppink2", male = "deepskyblue2")) + #manually set colors. This effects both points and lines. 
+  labs(x = "Bill length (mm)", y = "Bill depth (mm)", color = "Sex") + # Did not know you could change legend text inside the labs like this! 
+  theme_bw()
+
+Plot
+
+ggsave(here("Week_06", "Output", "Homework_Plot_BillDepth_BillLength_Sex.png"),
+       plot = Plot,
+       width = 9, height = 5,
+       create.dir = TRUE) # Error was coming up when deploying to the cloud. I think there is no directory on the cloud, so this will create path if one is missing. 
+```
+
+# Create one table using the penguin data
+```{r}
+#| label: tbl-adelie-bill #prefix with tbl to enable automatic updates
+#| tbl-cap: "Mean bill dimensions by sex in Adelie penguins."
+#| tbl-cap-location: bottom #move caption below table. For some reason above is default. 
+
+Penguins |>
+  filter(species == "Adelie", !is.na(sex)) |> #Keep only adelie penguins and remove any sex which is unknown
+  group_by(sex) |>
+  summarise(
+    Mean_bill_length = round(mean(bill_length_mm, na.rm = TRUE),2),
+    Mean_bill_depth = round(mean(bill_depth_mm, na.rm = TRUE),2)) |> 
+  kbl(col.names = c("Sex", "Mean bill length (mm)", "Mean bill depth (mm)"),
+      align = "ccc") |> # Manually set column names for final table and center text within columns. 
+  kable_classic() |> # add a theme
+  kable_styling(full_width = FALSE) # don't make it so wide.
+```
+&nbsp;
+
+&nbsp;
+
+# Homework
+
+- Take any of the data sheets you have already worked with in class and create at least **one table** and **one figure** in an Quarto file. [**DONE**]{style="color: #00EE76;"}
+- Create the most _beautiful_ Quarto output you can in either an html, github doc, or pdf format. YOU MUST RENDER THE FILE [**DONE**]{style="color: #00EE76;"}
+- Make sure you have headings with **clear explanations** of what you are doing. [**DONE**]{style="color: #00EE76;"}
+- Practice using markdown formatting with **bold**, _italics_, and lists (use each of these at least once). [**DONE**]{style="color: #00EE76;"}
+- Make sure your outputs and scripts are saved in the appropriate folders. Keep proper coding etiquette (figures need to be pub quality as usual and you need to **comment your code**). [**DONE**]{style="color: #00EE76;"}
+
+&nbsp;
+
+&nbsp;
+
+Did I make any mistakes?
+![](https://i.pinimg.com/originals/2c/1f/36/2c1f36c97df6287c3713e98babb41456.gif)
+
