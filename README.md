@@ -12,6 +12,6 @@ This repository includes the scripts, data, and outputs, for the weekly MBIO 612
 
 **Contents**
 
-- [Week_06](https://github.com/OCN-682-UH/Nemeth/tree/main/Week_06)
+- _[Week_06](https://github.com/OCN-682-UH/Nemeth/tree/main/Week_06)_
     - Introduction to Quarto
     - [Homework HTML](https://01a0f4f5-f734-9391-f4f6-5ff767729e39.share.connect.posit.cloud/)
