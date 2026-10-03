@@ -1,0 +1,233 @@
+---
+title: "GoodPlot-BadPlot"
+author: "Cameron Nemeth"
+format:
+  html:
+    code-fold: true              # code hidden by default, with a toggle button
+    code-summary: "Show code"    # customize the button label
+    mainfont: "Times new roman" # main body text consistent with my usual manuscripts
+    fontsize: 12pt # main font sizw
+    fontcolor: black # main font color
+    embed-resources: true # avoids the extra folders by placing images, scripts etc into the HTML itself 
+editor: visual
+warning: false
+theme: minty
+---
+
+The goal of this document is to create **one good plot** and **one bad plot** using the same dataset. As such, I will outline the steps that I took to arrive at each plot, and display the plots. 
+
+**1. Load my libraries**
+```{r}
+# Libraries
+library(tidyverse)
+library(readxl)
+library(writexl)
+library(here)
+library(patchwork)
+library(cowplot)
+library(ggExtra)
+library(kableExtra)
+library(knitr)
+```
+
+**2. Load in the raw data**
+```{r}
+# Load raw data
+Data_PilotWhaleHR <- read_excel(here("GoodPlot-BadPlot", "Data", "HR_Depth.xlsx"))
+```
+
+This is what the first ten rows of my raw data look like. The best way to visualize this is kind of as two separate datasets, the left two columns as one, and the right two columns as the other. I am not sure this is ideal, and I did not put this raw dataset together, but for now it is what we have. Depth is sampled at 1 hz and the ECG is sampled much higher, at around 125 hz. 
+```{r}
+#| label: tbl-RawData #prefix with tbl to enable automatic updates
+#| tbl-cap: ""
+
+Data_PilotWhaleHR |>
+  slice(1:10) |> #Keep rows 1-10
+  kbl(align = "cccc") |> # Align data in the center of columns. Number of c's matches number of columns
+  kable_classic() |> # add a theme
+  kable_styling(full_width = FALSE) # don't make it so wide.
+```
+**3. Organize the data**
+```{r}
+# Split into two independent datasets
+# Depth dataset
+Data_Depth <- Data_PilotWhaleHR |>
+  select(DepthTime, Depth) |> 
+  filter(!is.na(DepthTime)) |> 
+  mutate(DepthTime = round(DepthTime))  # Round all depth times to nearest whole number. Should be this way anyways, but just to be sure. Default round fuction is whole number. 
+
+# Heart rate dataset
+Data_HR <- Data_PilotWhaleHR |> 
+  select(ECGTime, HR) |> 
+  filter(!is.na(ECGTime))
+
+# Match each heartbeat to the depth recorded during that same second
+Data_HR <- Data_HR |> 
+  mutate(DepthTime = round(ECGTime)) |> # Round ECG time to the nearest whole number to get the most accurate depth at that time
+  left_join(Data_Depth, by = "DepthTime") # Keeps all rows from heart rate data, look in "Data_Depth" for rows with same "DepthTime" and add that rows columns (Depth, in this case). 
+```
+
+This is what the first ten lines of my cleaned up dataframe looks like. 
+```{r}
+#| label: tbl-CleanedECGData #prefix with tbl to enable automatic updates
+#| tbl-cap: ""
+
+Data_HR |>
+  slice(1:10) |> #Keep rows 1-10
+  kbl(align = "cccc") |> # Align data in the center of columns. Number of c's matches number of columns
+  kable_classic() |> # add a theme
+  kable_styling(full_width = FALSE) # don't make it so wide.
+```
+
+**4. Scale the second y axis**
+
+I want to plot Time along the x-axis, depth on the lefthand y-axis and heart rate on the righthand y-axis. This way we can see how heart rate changes with depth during a dive.
+**Note:** I already know a good section of the dive and will filter to use that section. 
+
+The tricky part is that R can only show one "scale" on the y-axis, so the second y-axis must be transformed so it lands in the same numeric range as the first. I will start by doing this below:
+**Note: I am very much learning this now, but this will be useful for me in the future.**
+
+```{r}
+# Filter each dataset to the same time window 
+# These times correspond to the dive I want to plot
+t_min <- 23045
+t_max <- 23350
+
+# Take the depth dataset and filter between the min and max times from that dive
+Depth_window <- Data_Depth |> 
+  filter(DepthTime > t_min, DepthTime < t_max) 
+
+# Take the heart rate dataset and filter between the min and max times for the dive. 
+HR_window <- Data_HR |> 
+  filter(ECGTime > t_min, ECGTime < t_max)
+
+# Find the min and max of each variable in the window
+# Despite the fact that it is called "range", this returns the min and max, not the difference between the two, or what we think of as the true range. 
+depth_range <- range(Depth_window$Depth, na.rm = TRUE)
+hr_range    <- range(HR_window$HR, na.rm = TRUE)
+
+# Slope and intercept of the line that converts HR to a depth-scale position
+scale_factor <- -diff(depth_range) / diff(hr_range)          # slope
+scale_shift  <- depth_range[2] - hr_range[1] * scale_factor  # intercept
+
+# Add the converted heart rate as a new column
+HR_window <- HR_window |> 
+  mutate(HR_scaled = HR * scale_factor + scale_shift)
+
+# Note: This is just m*x+b
+```
+
+
+**5. Make the good plot**
+```{r}
+#| fig-width: 8
+#| fig-height: 5
+#| fig-align: "center"
+#| label: fig-Pilotwhale-HeartRate-Depth-Good
+#| fig-cap: "A dual-axis time-series plot of a pilot whale's dive to 23 m. Time is shown on the x-axis, and depth (m) is shown inversely on the left y-axis by a blue line, which is reversed so deeper values appear lower. Instantaneous heart rate (BPM) is shown on the right y-axisand is shown as red dots, one per heartbeat."
+
+GoodPlot <- ggplot() +
+  # I did not realize we could pull from two different dataframes
+  # Depth as a blue line
+  geom_line(data = Depth_window, aes(x = DepthTime, y = Depth),
+            color = "#1E90FF", linewidth = 1) +
+  # Heart rate as red points (raw data), positioned using the RESCALED values
+  geom_point(data = HR_window, aes(x = ECGTime, y = HR_scaled),
+             color = "#EE2C2C", size = 2) +
+  # Reverse the depth axis, and add a right axis that converts back to BPM. Basically, undoes the depth-scaling effect from earlier for the right y-axis labels. 
+  scale_y_reverse(
+    name = "Depth (m)",
+    sec.axis = sec_axis(~ (. - scale_shift) / scale_factor,
+                        name = "Instantaneous heart rate (BPM)")
+  ) + # "~" is R's language for "starting a formula" and "." is "the main axis value"
+  labs(x = "Time (s)", title = "Pilot whale dive to 23 m") +
+  theme_bw() +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5), #bold and center title
+    axis.title = element_text(size = 14), # Larger axes titles
+    axis.text = element_text(size = 12), # Larger axes text (tick labels)
+    axis.title.y.left  = element_text(color = "#1E90FF", size = 14), # Color the left side y axis to match the line and increase size
+    axis.text.y.left   = element_text(color = "#1E90FF", size = 12), # Increase tick label size on left size and color match
+    axis.title.y.right = element_text(color = "#EE2C2C", size = 14), # Increase axis title size on right size and color match
+    axis.text.y.right  = element_text(color = "#EE2C2C", size = 12) # Increase tick label size on right side and color match
+  )
+
+GoodPlot
+
+ggsave(
+  filename = here("GoodPlot-BadPlot", "Output", "GoodPlot.png"),
+  plot = GoodPlot,
+  width = 8, height = 5, dpi = 300
+)
+```
+
+**6. Make the bad plot**
+```{r}
+#| fig-width: 8
+#| fig-height: 5
+#| fig-align: "center"
+#| label: fig-Pilotwhale-HeartRate-Depth-Bad
+#| fig-cap: "It's pretty self explanitory..."
+
+# Separate scaling for the bad plot with positive slope, min HR pinned to min depth
+bad_factor <- diff(depth_range) / diff(hr_range)
+bad_shift  <- depth_range[1] - hr_range[1] * bad_factor
+
+HR_window_bad <- HR_window |> 
+  mutate(HR_scaled_bad = HR * bad_factor + bad_shift)
+
+BadPlot <- ggplot() +
+  # Depth as a hot pink obsurdely thick line, time converted from seconds to days
+  geom_line(data = Depth_window, aes(x = DepthTime / 86400, y = Depth),
+            color = "hotpink", linewidth = 17) +
+  # Heart rate as red hearts
+  geom_point(data = HR_window_bad, aes(x = ECGTime / 86400, y = HR_scaled_bad),
+             color = "#FF3030", shape = "\u2665", size = 8) +
+  # Make sure the axes are set up for more confusion
+  scale_y_continuous(
+    name = "Deepness",
+    sec.axis = sec_axis(~ (. - bad_shift) / bad_factor,
+                        name = "Heart squeezy interval (Thumps per 60 seconds)")
+  ) + #Stupid axes titles
+  labs(x = "Time (days)", title = "Pilot whale dive") +
+  theme_bw() +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12),
+    axis.title.y.left  = element_text(color = "black", size = 14), # Increase axis title size on left size and color black for no contrast
+    axis.text.y.left   = element_text(color = "black", size = 12), # Increase tick label size on left side and color black for no contrast
+    axis.title.y.right = element_text(color = "black", size = 14), # Increase axis title size on right size and color black for no contrast
+    axis.text.y.right  = element_text(color = "black", size = 12) # Increase tick label size on right side and color black for no contrast
+  ) +
+theme(
+  plot.background  = element_rect(fill = "#FF00FF"),   # whole image background
+  panel.background = element_rect(fill = "#00FFFF")    # background of the data area
+)
+
+
+BadPlot_WithWhale <- ggdraw(BadPlot) +
+  draw_image(
+    here("GoodPlot-BadPlot", "Data", "MadPilotWhale.png"),
+    x = 0.33, y = 0.40, # Image position
+    width = 0.45, height = 0.45 # Image size
+  )
+
+BadPlot_WithWhale
+
+ggsave(
+  filename = here("GoodPlot-BadPlot", "Output", "BadPlot_WithWhale.png"),
+  plot = BadPlot_WithWhale,
+  width = 8, height = 5, dpi = 300
+)
+```
+
+
+**Please enjoy this video of a pilot whale headbutting his tag after it came off**
+
+```{r}
+#| fig-align: "center"
+#| out-width: "60%"
+
+include_graphics(here("GoodPlot-BadPlot", "Data", "PilotWhaleHeadbuttApple.gif"))
+```
