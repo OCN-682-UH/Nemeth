@@ -14,3 +14,7 @@ _[Week_06](https://github.com/OCN-682-UH/Nemeth/tree/main/Week_06)_
 
 - Introduction to Quarto
 - [Homework HTML](https://cameronnemeth-ocn-682---nemeth---week-6-homework.share.connect.posit.cloud)
+
+_[Good Plot Bad Plot](https://github.com/OCN-682-UH/Nemeth/tree/main/GoodPlot-BadPlot)_
+
+- [Assignment on PositCloud](https://cameronnemeth-ocn-682---nemeth---good-plot-bad-plot.share.connect.posit.cloud)
