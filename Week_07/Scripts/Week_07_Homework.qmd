@@ -1,0 +1,195 @@
+---
+title: "Week 7 Homework"
+author: "Cameron Nemeth"
+format:
+  html:
+    code-fold: true              # code hidden by default, with a toggle button
+    code-summary: "Show code"    # customize the button label
+    embed-resources: true # avoids the extra folders by placing images, scripts etc into the HTML itself 
+editor: visual
+warning: false
+theme: minty
+---
+
+### Homework instructions
+
+#### Make a map **using Quarto** with one of the following TidyTuesday datasets. Save your script and output appropriately.
+
+Load libraries
+
+```{r}
+# Load libraries
+library(tidyverse)
+library(here)
+library(maps)
+library(mapdata)
+library(mapproj)
+```
+
+Load data. I will use the cat dataset from TidyTuesday, so I will just copy and paste / follow the instructions for loading the data from online.
+
+```{r}
+# Get the Data
+
+# Read in with tidytuesdayR package 
+# Install from CRAN via: 
+# install.packages("tidytuesdayR")
+# This loads the readme and all the datasets for the week of interest
+
+# Either ISO-8601 date or year/week works!
+
+tuesdata <- tidytuesdayR::tt_load('2023-01-31')
+tuesdata <- tidytuesdayR::tt_load(2023, week = 5)
+
+cats_uk <- tuesdata$cats_uk
+cats_uk_reference <- tuesdata$cats_uk_reference
+```
+
+Get the UK data to link the cat data with
+
+```{r}
+# Was having a hard time getting UK from map_data("UK"), but after some investigation, it looks like I need to specify the database "world" first and then look for UK as the region (country). 
+UK <- map_data("world", region = "UK")
+head(UK)
+```
+
+Map just the UK
+
+```{r}
+
+ggplot() +
+  geom_polygon(data = UK,
+               aes(x = long, y = lat,
+                   group = group),
+               fill = "#012169",# UK royal blue
+               color = "black") + # outlines
+  theme_minimal() + #minimal theme
+  guides(fill = "none") + # no legend
+  labs(x = "Longitude (deg)", y = "Latitude (deg)") +
+  theme(panel.background =
+          element_rect(fill = "white"))+
+  coord_map(projection = "mercator") # formatting of shape looks better
+```
+
+I want to plot only one cat and their positions, so first I will figure out which cat has the most position data points.
+
+```{r}
+#count(cats_uk$tag_id) <- this did not work
+
+cats_uk |> 
+  count(tag_id, sort = TRUE) # sort made it easier to see high to low.
+```
+
+Choosing "Tom" instead because I like his name.
+
+```{r}
+Tom <- cats_uk |> 
+  filter(tag_id == "Tom-Tag")
+```
+
+Place Tom's data on the map
+
+```{r}
+Tom_Map_UK_Whole <- ggplot() +
+  geom_polygon(data = UK,
+               aes(x = long, y = lat,
+                   group = group),
+               fill = "#012169",# UK royal blue
+               color = "black") + # outlines
+  geom_point(data = Tom,
+             aes(x = location_long, y = location_lat),
+             color = "#C8102E",
+             size = 4,
+             alpha = 0.65) +
+  theme_minimal() + #minimal theme
+  guides(fill = "none") + # no legend
+  labs(x = "Longitude (deg)", y = "Latitude (deg)") +
+  theme(panel.background =
+          element_rect(fill = "white"))+
+  coord_map(projection = "mercator") # formatting of shape looks better
+
+Tom_Map_UK_Whole
+```
+
+Try to zoom in on that area
+
+```{r}
+Tom_Turf <- ggplot() +
+  geom_polygon(data = UK,
+               aes(x = long, y = lat,
+                   group = group),
+               fill = "#012169",# UK royal blue
+               color = "black") + # outlines
+  geom_point(data = Tom,
+             aes(x = location_long, y = location_lat),
+             color = "#C8102E",
+             size = 4,
+             alpha = 0.65) +
+  theme_minimal() + #minimal theme
+  guides(fill = "none") + # no legend
+  labs(x = "Longitude (deg)", y = "Latitude (deg)") +
+  theme(panel.background =
+          element_rect(fill = "white"))+
+  coord_map(projection = "mercator",
+            xlim = c(-4.61, -4.59),
+            ylim = c(50.43, 50.443))
+  
+Tom_Turf
+```
+
+Need to include regions within UK
+
+```{r}
+UK_cities <- world.cities |>
+  filter(country.etc == "UK") # This world cities function seems like a good way to get the cities for most countries. I tried using the county method from class, but struggled a bit
+```
+
+What does this map look like?
+
+```{r}
+ggplot() +
+  geom_polygon(data = UK,
+               aes(x = long, y = lat,
+                   group = group),
+               fill = "#012169",# UK royal blue
+               color = "black") + # outlines
+  geom_point(data = UK_cities,
+             aes(x = long, y = lat),
+             color = "#C8102E",
+             size = 2) +
+  theme_minimal() + #minimal theme
+  guides(fill = "none") + # no legend
+  labs(x = "Longitude (deg)", y = "Latitude (deg)") +
+  theme(panel.background =
+          element_rect(fill = "white"))+
+  coord_map(projection = "mercator") # formatting of shape looks better
+
+```
+
+The cities are points... that's not going to work. I may have to give up for now and accept just having Tom's data on the whole map of the UK... I will save this here.
+
+```{r}
+Tom_Map_UK_Whole <- ggplot() +
+  geom_polygon(data = UK,
+               aes(x = long, y = lat,
+                   group = group),
+               fill = "#012169",# UK royal blue
+               color = "black") + # outlines
+  geom_point(data = Tom,
+             aes(x = location_long, y = location_lat),
+             color = "#C8102E",
+             size = 4,
+             alpha = 0.65) +
+  theme_minimal() + #minimal theme
+  guides(fill = "none") + # no legend
+  labs(x = "Longitude (deg)", y = "Latitude (deg)") +
+  theme(panel.background =
+          element_rect(fill = "white"),
+        plot.background = element_rect(fill = "white", color = NA) 
+  )+ #White background all around
+  coord_map(projection = "mercator") # formatting of shape looks better
+
+Tom_Map_UK_Whole
+
+ggsave(here("Week_07", "Output", "Week_07_Homework_Plot.png"))
+```

@@ -1,0 +1,161 @@
+---
+title: "Week 7 Lecture 1 - Intro to Mapping
+author: "Cameron Nemeth"
+format:
+  html:
+    code-fold: true              # code hidden by default, with a toggle button
+    code-summary: "Show code"    # customize the button label
+    mainfont: "Times new roman" # main body text consistent with my usual manuscripts
+    fontsize: 12pt # main font sizw
+    fontcolor: black # main font color
+    embed-resources: true # avoids the extra folders by placing images, scripts etc into the HTML itself 
+editor: visual
+warning: false
+theme: minty
+---
+
+## 
+
+Load libraries
+
+```{r}
+# Load libraries
+library(tidyverse)
+library(here)
+library(maps)
+library(mapdata)
+library(mapproj)
+
+```
+
+Load data
+
+```{r}
+# Population in California by county
+popdata <- read_csv(here("Week_07", "Data", "CApopdata.csv"))
+
+# Seastar counts at field sites in California
+stars <- read_csv(here("Week_07", "Data", "stars.csv"))
+```
+
+Check out map data
+
+```{r}
+world <- map_data("world")
+
+head(world)
+```
+
+Map out the USA
+```{r}
+usa <- map_data("usa")
+
+head(usa)
+```
+
+Map out the states
+
+```{r}
+states <- map_data("state")
+
+head(states)
+```
+
+Check out a specific country
+```{r}
+Italy <- map_data("italy")
+
+head(Italy)
+```
+
+**DO NOT FORGET TO ADD GROUP = GROUP IN YOUR MAP CODE!**
+
+Make a map of the world
+```{r}
+ggplot() +
+  geom_polygon(data = world,
+               aes(x = long, y = lat,
+                   group = group))
+```
+
+**THIS IS WHAT HAPPENS IF YOU FORGET TO ADD GROUP = GROUP IN YOUR MAP CODE!**
+```{r}
+ggplot() +
+  geom_polygon(data = world,
+               aes(x = long, y = lat,))
+```
+Add things to map
+
+```{r}
+ggplot() +
+  geom_polygon(data = world,
+               aes(x = long, y = lat,
+                   group = group,
+                   fill = region),
+               color = "black") +
+  theme_minimal() +
+  guides(fill = "none") +
+  theme(panel.background =
+          element_rect(fill = "lightblue")) +
+  coord_map(projection = "mercator",
+            xlim  = c(-180,180))
+```
+Map of just California
+```{r}
+# Filter the states dataframe to just CA
+California <- states |> 
+  filter(region == "california")
+
+ggplot() +
+  geom_polygon(data = California,
+               aes(x = long, y = lat,
+                   group = group),
+               fill = "#BA0C2F",
+               color = "black") +
+  theme_minimal() +
+  guides(fill = "none") +
+  labs(x = "Longitude (deg)", y = "Latitude (deg)") +
+  theme(panel.background =
+          element_rect(fill = "white"))+
+  coord_map(projection = "mercator")
+```
+
+Map with counties in California 
+
+```{r}
+counties <- map_data("county")
+
+CApop_county <- popdata |> 
+  select("subregion" = County, Population) |> 
+  inner_join(counties) |> 
+  filter(region == "california")
+```
+
+```{r}
+ggplot() +
+  geom_polygon(data = CApop_county,
+               aes(x = long, y = lat,
+                   group = group, 
+                   fill = Population),
+               color = "black") +
+                 coord_map() +
+              scale_fill_gradient(transform = "log10")
+```
+Add stars
+```{r}
+ggplot() +
+  geom_polygon(data = CApop_county,
+               aes(x = long, y = lat,
+                   group = group, 
+                   fill = Population),
+               color = "black") +
+  geom_point(data = stars,
+             aes(x = long, y = lat,
+             size = star_no)) +
+                 coord_map() +
+              scale_fill_gradient(transform = "log10") +
+  labs(size = "# stars/m2")
+
+ggsave(here("Week_07", "Output", "CApop.png"))
+```
+
