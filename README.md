@@ -18,3 +18,8 @@ _[Week_06](https://github.com/OCN-682-UH/Nemeth/tree/main/Week_06)_
 _[Good Plot Bad Plot](https://github.com/OCN-682-UH/Nemeth/tree/main/GoodPlot-BadPlot)_
 
 - [Assignment on PositCloud](https://cameronnemeth-ocn-682---nemeth---good-plot-bad-plot.share.connect.posit.cloud)
+
+_[Week_07](https://github.com/OCN-682-UH/Nemeth/tree/main/Week_07)_
+
+- Introduction to maps
+- [Homework HTML](https://cameronnemeth-ocn-682---nemeth---week-7.share.connect.posit.cloud)
