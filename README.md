@@ -24,7 +24,7 @@ _[Week_07](https://github.com/OCN-682-UH/Nemeth/tree/main/Week_07)_
 - Introduction to maps
 - [Homework HTML](https://cameronnemeth-ocn-682---nemeth---week-7.share.connect.posit.cloud)
 
-- _[Week_08](https://github.com/OCN-682-UH/Nemeth/tree/main/Week_08)_
+ _[Week_08](https://github.com/OCN-682-UH/Nemeth/tree/main/Week_08)_
 
 - Functions
 - [Homework HTML](https://cameronnemeth-ocn-682---nemeth---week-8-homework.share.connect.posit.cloud)
