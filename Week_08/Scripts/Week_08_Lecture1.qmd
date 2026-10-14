@@ -1,0 +1,220 @@
+---
+title: "Week 8 - Lecture 1"
+author: "Cameron Nemeth"
+format:
+  html:
+    code-fold: true              # code hidden by default, with a toggle button
+    code-summary: "Show code"    # customize the button label
+    embed-resources: true # avoids the extra folders by placing images, scripts etc into the HTML itself 
+editor: visual
+warning: false
+theme: minty
+---
+
+## 
+
+Load libraries
+
+```{r}
+# Load libraries
+library(tidyverse)
+library(here)
+library(maps)
+library(mapdata)
+library(mapproj)
+library(palmerpenguins)
+library(PNWColors)
+```
+
+Random numbers
+
+```{r}
+df <- tibble(
+  a = rnorm(10),
+  b = rnorm(10),
+  c = rnorm(10),
+  d = rnorm(10)
+)
+
+head(df)
+```
+
+Test out the manual rescaling
+
+```{r}
+df <- df |>
+  mutate(a = (a - min(a, na.rm = TRUE)) / (max(a, na.rm = TRUE) - min(a, na.rm = TRUE)))
+
+head(df)
+```
+
+Write a function for rescaling
+
+```{r}
+rescale01 <- function(x) {
+  value <- (x - min(x, na.rm = TRUE)) / (max(x, na.rm = TRUE) - min(x, na.rm = TRUE))
+  return(value)
+}
+
+df |>
+  mutate(
+    a = rescale01(a),
+    b = rescale01(b),
+    c = rescale01(c),
+    d = rescale01(d)
+  )
+```
+
+Use that function across all columns
+
+```{r}
+df |>
+  mutate(across(everything(), rescale01))
+```
+
+**Tip**: Write out a working code from scratch and then turn it into a function!
+
+Four parts of a function:
+
+1.  Function name
+2.  Arguments
+3.  Function body (between the brackets{})
+4.  Return statements
+
+Unit conversion example
+
+Step 1. Write out conversion formula
+
+```{r}
+temp_C <- (temp_F - 32) * 5 / 9 
+```
+
+Step 2. Create the function
+
+```{r}
+f_to_c <- function() {
+  #code goes here
+}
+```
+
+Step 3. Add the formula
+
+```{r}
+f_to_c <- function(){
+  temp_C <- (temp_F - 32) * 5 / 9
+}
+```
+
+Step 4. Add the argument
+
+```{r}
+f_to_c <- function(temp_F){
+  temp_C <- (temp_F - 32) * 5 / 9
+}
+# The two "temp_F"s are arbitrary, but they must match
+```
+
+Step 5. Add the return statement
+
+```{r}
+f_to_c <- function(temp_F){
+  temp_C <- (temp_F - 32) * 5 / 9
+  return(temp_C)
+}
+```
+
+Write a function that converts Celsius to Kelvin
+
+```{r}
+c_to_k <- function(C){
+  temp_K <- (C + 273.15)
+  return(temp_K)
+}
+```
+
+Making plots with functions
+
+```{r}
+pal <- pnw_palette("Lake", 3, type = "discrete")
+
+ggplot(penguins, aes(x = body_mass_g, y = bill_length_mm, color = island)) +
+  geom_point()+
+  geom_smooth(method = "lm") +
+  scale_color_manual("Island", values = pal) +
+  theme_bw()
+```
+
+Name and set up the function
+
+```{r}
+myplot <- function(data, x, y) {
+  pal <- pnw_palette("Lake", 3, type = "discrete")
+  
+  ggplot(data, aes(x = {{x}}, y = {{y}}, color = island)) +
+    geom_point() +
+    geom_smooth(method = "lm") +
+    scale_color_manual("Island", values = pal) +
+    theme_bw()
+}
+```
+
+Test this
+
+```{r}
+myplot(data = penguins, x = body_mass_g, y = bill_length_mm)
+```
+
+You can layer on other elements like normal
+
+```{r}
+myplot(penguins, x = body_mass_g, y = flipper_length_mm) +
+  labs(x = "Body mass (g)", y = "Flipper length (mm)")
+```
+
+Using if-else
+
+```{r}
+a <- 4
+b <- 5
+
+if (a > b) {
+  f <- 20
+} else {
+  f <- 10
+}
+
+f
+```
+
+Add arguments to toggle things on and off
+
+```{r}
+myplot <- function(data = penguins, x, y, lines = TRUE) {
+  pal <- pnw_palette("Lake", 3, type = "discrete")
+  
+  if (lines == TRUE) {
+    ggplot(data, aes(x = {{x}}, y = {{y}}, color = island)) +
+      geom_point() +
+      geom_smooth(method = "lm") +
+      scale_color_manual("Island", values = pal) +
+      theme_bw()
+  } else {
+    ggplot(data, aes(x = {{x}}, y = {{y}}, color = island)) +
+      geom_point() +
+      scale_color_manual("Island", values = pal) +
+      theme_bw()
+  }
+}
+```
+
+Test with lines
+
+```{r}
+myplot(x = body_mass_g, y = flipper_length_mm)
+```
+
+Test without lines
+
+```{r}
+myplot(x = body_mass_g, y = flipper_length_mm, lines = FALSE)
+```

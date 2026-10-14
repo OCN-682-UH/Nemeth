@@ -1,0 +1,352 @@
+---
+title: "Week 8 - Homework"
+author: "Cameron Nemeth"
+format:
+  html:
+    code-fold: true              # code hidden by default, with a toggle button
+    code-summary: "Show code"    # customize the button label
+    embed-resources: true # avoids the extra folders by placing images, scripts etc into the HTML itself 
+editor: visual
+warning: false
+theme: minty
+---
+
+### Instructions
+
+1.  Create any dataset you’d like
+
+2.  Write **two useful functions**:
+
+    - One that creates a plot
+
+    - One that does something else
+
+3.  Create a Quarto document showing:
+
+    - At least 2 examples per function
+
+    - Evidence of the function’s flexibility
+
+For my Good Plot Bad Plot assignment I had trouble with placing two y-axis on the same plot. I had to learn to scale the right y-axis based on the values on the left y-axis. This seems like a good opportunity to write a function that I could use across various datasets. I will load the same data and follow the same steps from my Good Plot Bad Plot project, but write functions that I could use in the future.
+
+**1. Load my libraries**
+
+```{r}
+# Libraries
+library(tidyverse)
+library(readxl)
+library(writexl)
+library(here)
+library(patchwork)
+library(cowplot)
+library(ggExtra)
+library(kableExtra)
+library(knitr)
+```
+
+**2. Load in the raw data**
+
+```{r}
+# Load raw data
+Data_PilotWhaleHR <- read_excel(here("Week_08", "Data", "HR_Depth.xlsx"))
+```
+
+**3. Organize the data**
+
+```{r}
+# Split into two independent datasets
+# Depth dataset
+Data_Depth <- Data_PilotWhaleHR |>
+  select(DepthTime, Depth) |> 
+  filter(!is.na(DepthTime)) |> 
+  mutate(DepthTime = round(DepthTime))  # Round all depth times to nearest whole number. Should be this way anyways, but just to be sure. Default round fuction is whole number. 
+
+# Heart rate dataset
+Data_HR <- Data_PilotWhaleHR |> 
+  select(ECGTime, HR) |> 
+  filter(!is.na(ECGTime))
+
+# Match each heartbeat to the depth recorded during that same second
+Data_HR <- Data_HR |> 
+  mutate(DepthTime = round(ECGTime)) |> # Round ECG time to the nearest whole number to get the most accurate depth at that time
+  left_join(Data_Depth, by = "DepthTime") # Keeps all rows from heart rate data, look in "Data_Depth" for rows with same "DepthTime" and add that rows columns (Depth, in this case). 
+```
+
+**4. Filter the section of the dive I want to plot**
+
+To test this out, I want to use a section of the deployment that I already know is good
+
+```{r}
+# Filter both the depth data and the hear rate data to the time range that we want to use. Depth gets plotted as it's own line, with HR points overlayed. 
+Depth_Dive_23045_23350 <- Data_Depth |> 
+  filter(DepthTime >= 23045, DepthTime <= 23350)
+
+HR_Dive_23045_23350 <- Data_HR |> 
+  filter(DepthTime >= 23045, DepthTime <= 23350)
+```
+
+**5. Make the above step into a function!**
+
+I think if we are going to be looking at a lot of different sections of the dive and replot, then it makes sense to create a function that filters the datasets automatically to the time range we are interested in. This means I will have to make an extra function, but I think it's worth it.
+
+```{r}
+FilterTime <- function(Data, TimeColumnName, StartTime, EndTime) {
+  Data |> 
+    filter({{ TimeColumnName }} >= StartTime, {{ TimeColumnName }} <= EndTime)
+} # Use the curly curlys to reach inside datasets!
+
+```
+
+**6. Test the function**
+
+```{r}
+Data_Depth_23045_23350 <- FilterTime(Data_Depth, DepthTime, 23045, 23350) # I named the dataframe with the range, in case we have multiple ranges we want to try
+Data_HR_23045_23350    <- FilterTime(Data_HR,    ECGTime,   23045, 23350)
+```
+
+It seems to work!
+
+**7. Scale the second y-axis**
+
+I want to plot Time along the x-axis, depth on the lefthand y-axis and heart rate on the righthand y-axis. This way we can see how heart rate changes with depth during a dive.
+
+The tricky part is that R can only show one “scale” on the y-axis, so the second y-axis must be transformed so it lands in the same numeric range as the first. I will start by doing this below: **Note: The above text comes straight from my Good Plot Bad Plot assignment, but I will now try to create functions for the scaling and the plotting. This is something we will use over and over in the future.**
+
+```{r}
+Rescale_Right_Y_Axis <- function(RightAxis, LeftAxis, Flip = TRUE) {
+  
+  # RightAxis: the values being converted (heart rate)
+  # LeftAXis: the values of the axis they are placed on (depth)
+  # Flip: TRUE if the right axis is opposite of the left. Always the case for depth.
+  # I did not have this flip option last time, and it was hard, so this should help. 
+  
+  RightAxis_range <- range(RightAxis, na.rm = TRUE)   # min and max of heart rate
+  LeftAxis_range   <- range(LeftAxis,   na.rm = TRUE)   # min and max of depth
+  
+  if (Flip) {
+    scale_factor <- -diff(LeftAxis_range) / diff(RightAxis_range)   # negative slope
+    scale_shift  <- LeftAxis_range[2] - RightAxis_range[1] * scale_factor # min HR lands on max depth
+  } else {
+    scale_factor <- diff(LeftAxis_range) / diff(RightAxis_range)    # positive slope
+    scale_shift  <- LeftAxis_range[1] - RightAxis_range[1] * scale_factor   # min HR lands on min depth
+  }
+  
+  list(scale_factor = scale_factor, scale_shift = scale_shift)
+}
+```
+
+**8. Get slope and intercept from our function. These are just calculations that spit out values that we will use in the plot function.**
+
+```{r}
+Scale_HR_23045_23350 <- Rescale_Right_Y_Axis(RightAxis = Data_HR_23045_23350$HR,
+                                 LeftAxis  = Data_Depth_23045_23350$Depth,
+                                 Flip      = TRUE)  # We want to flip depth to make the orientation look nicer on the plot. Just like on my good plot bad plot. 
+```
+
+**9. Create the function for the plot**
+
+```{r}
+# Most of the ggplot code is consistent with my good plot bad plot assingment. Just function is new and small tweaks.
+
+Plot_Dual_Axis <- function(LeftData, RightData,
+                           LeftTime, LeftY, RightTime, RightY,
+                           ReverseLeftAxis = TRUE) { # TRUE reverses the left axis (usually depth) and gives the right axis a negative slope so the two run in opposite directions. Set FALSE if wanting both axes to run in the same direction.
+  
+  # Rescale the right-axis values automatically, using the ReverseLeftAxis setting
+  Scale <- Rescale_Right_Y_Axis(RightAxis = pull(RightData, {{ RightY }}), # pull column as vector
+                                LeftAxis  = pull(LeftData,  {{ LeftY }}), # pull column as vector
+                                Flip      = ReverseLeftAxis)   # This looks up TRUE or FALSE above in the plot code
+  
+  # Add the rescaled right-axis values as a column, so we can plot the points on left axis
+  RightData <- RightData |> 
+    mutate(Right_scaled = {{ RightY }} * Scale$scale_factor + Scale$scale_shift)
+  
+  ggplot() +
+    geom_line(data = LeftData, aes(x = {{ LeftTime }}, y = {{ LeftY }}),
+              color = "#1E90FF", linewidth = 1) +
+    geom_point(data = RightData, aes(x = {{ RightTime }}, y = Right_scaled),
+               color = "#EE2C2C", size = 2) +
+    # The left axis is reversed only when ReverseLeftAxis = TRUE, and the right axis undoes rescaling
+    scale_y_continuous(
+      name = "Depth (m)",
+      transform = if (ReverseLeftAxis) "reverse" else "identity",
+      sec.axis = sec_axis(~ (. - Scale$scale_shift) / Scale$scale_factor,
+                          name = "Instantaneous heart rate (BPM)")
+    ) +
+    labs(x = "Time (s)") +
+    theme_bw() +
+    theme(
+      plot.title = element_text(face = "bold", hjust = 0.5),
+      axis.title = element_text(size = 14),
+      axis.text = element_text(size = 12),
+      axis.title.y.left  = element_text(color = "#1E90FF", size = 14),
+      axis.text.y.left   = element_text(color = "#1E90FF", size = 12),
+      axis.title.y.right = element_text(color = "#EE2C2C", size = 14),
+      axis.text.y.right  = element_text(color = "#EE2C2C", size = 12)
+    )
+}
+```
+
+**10. Test the plot function**
+
+This should give a plot that looks just like my good plot
+
+```{r}
+GoodPlot <- Plot_Dual_Axis(LeftData = Data_Depth_23045_23350, 
+                           RightData = Data_HR_23045_23350,
+                           LeftTime = DepthTime,
+                           LeftY = Depth,
+                           RightTime = ECGTime,
+                           RightY = HR,
+                           ReverseLeftAxis = TRUE)
+GoodPlot
+```
+
+This looks exactly like my good plot!!
+
+**11. Test the functions again, but we need a different variable than HR, which I unfortunately do not have.**
+
+Change HR to RR Interval (second per beat). The RR interval is just the number of second between beats, so we would divide 60 by the heart rate
+
+```{r}
+Data_RR_23045_23350 <- Data_HR_23045_23350 |> 
+  mutate(RRInterval = 60/HR)
+```
+
+**12. Get slope and intercept using the function we created**
+
+```{r}
+Scale_RR_23045_23350 <- Rescale_Right_Y_Axis(RightAxis = Data_RR_23045_23350$RRInterval,
+                                             LeftAxis  = Data_Depth_23045_23350$Depth,
+                                             Flip      = TRUE)  # We want to flip depth to make the orientation look nicer on the plot. Just like on my good plot bad plot.
+```
+
+Same slope, that makes sense!
+
+**13. Use the plot function to plot RR intervals**
+
+I will need to rename the right axis
+
+```{r}
+RRPlot <- Plot_Dual_Axis(LeftData = Data_Depth_23045_23350, 
+                           RightData = Data_RR_23045_23350,
+                           LeftTime = DepthTime,
+                           LeftY = Depth,
+                           RightTime = ECGTime,
+                           RightY = RRInterval,
+                           ReverseLeftAxis = TRUE) +
+  labs(y = "R-R Interval (seconds)")
+RRPlot
+```
+
+The right hand y-axis did not change as expected, I think I am going to need to redo the function to make this work, but that does not seem efficient. Let me try to remove the naming aspect from the original function and then add it manually after making the plot.
+
+Remove naming aspect from function
+
+```{r}
+# Most of the ggplot code is consistent with my good plot bad plot assingment. Just function is new and small tweaks.
+
+Plot_Dual_Axis_AnyRightAxis <- function(LeftData, RightData,
+                           LeftTime, LeftY, RightTime, RightY,
+                           ReverseLeftAxis = TRUE) { # TRUE reverses the left axis (usually depth) and gives the right axis a negative slope so the two run in opposite directions. Set FALSE if wanting both axes to run in the same direction.
+  
+  # Rescale the right-axis values automatically, using the ReverseLeftAxis setting
+  Scale <- Rescale_Right_Y_Axis(RightAxis = pull(RightData, {{ RightY }}), # pull column as vector
+                                LeftAxis  = pull(LeftData,  {{ LeftY }}), # pull column as vector
+                                Flip      = ReverseLeftAxis)   # This looks up TRUE or FALSE above in the plot code
+  
+  # Add the rescaled right-axis values as a column, so we can plot the points on left axis
+  RightData <- RightData |> 
+    mutate(Right_scaled = {{ RightY }} * Scale$scale_factor + Scale$scale_shift)
+  
+  ggplot() +
+    geom_line(data = LeftData, aes(x = {{ LeftTime }}, y = {{ LeftY }}),
+              color = "#1E90FF", linewidth = 1) +
+    geom_point(data = RightData, aes(x = {{ RightTime }}, y = Right_scaled),
+               color = "#EE2C2C", size = 2) +
+    # The left axis is reversed only when ReverseLeftAxis = TRUE, and the right axis undoes the rescaling
+    scale_y_continuous(
+      name = "Depth (m)",
+      transform = if (ReverseLeftAxis) "reverse" else "identity",
+      sec.axis = sec_axis(~ (. - Scale$scale_shift) / Scale$scale_factor)
+    ) +
+    labs(x = "Time (s)") +
+    theme_bw() +
+    theme(
+      plot.title = element_text(face = "bold", hjust = 0.5),
+      axis.title = element_text(size = 14),
+      axis.text = element_text(size = 12),
+      axis.title.y.left  = element_text(color = "#1E90FF", size = 14),
+      axis.text.y.left   = element_text(color = "#1E90FF", size = 12),
+      axis.title.y.right = element_text(color = "#EE2C2C", size = 14),
+      axis.text.y.right  = element_text(color = "#EE2C2C", size = 12)
+    )
+}
+```
+
+Replot the R-R interval plot, and add new label
+
+```{r}
+RRPlot <- Plot_Dual_Axis_AnyRightAxis(LeftData = Data_Depth_23045_23350, 
+                                      RightData = Data_RR_23045_23350,
+                                      LeftTime = DepthTime, LeftY = Depth,
+                                      RightTime = ECGTime,  RightY = RRInterval) +
+  labs(y.sec = "R-R Interval (seconds)")
+RRPlot
+```
+
+That did not work, so let's try to add the label up top on the function
+
+```{r}
+Plot_Dual_Axis_AnyRightAxis <- function(LeftData, RightData,
+                                        LeftTime, LeftY, RightTime, RightY,
+                                        ReverseLeftAxis = TRUE,
+                                        RightLabel = "R-R Interval (s)") {
+  
+  # Rescale the right-axis values automatically, using the ReverseLeftAxis setting
+  Scale <- Rescale_Right_Y_Axis(RightAxis = pull(RightData, {{ RightY }}), # pull column as vector
+                                LeftAxis  = pull(LeftData,  {{ LeftY }}), # pull column as vector
+                                Flip      = ReverseLeftAxis)   # This looks up TRUE or FALSE above in the plot code
+  
+  # Add the rescaled right-axis values as a column, so we can plot the points on left axis
+  RightData <- RightData |> 
+    mutate(Right_scaled = {{ RightY }} * Scale$scale_factor + Scale$scale_shift)
+  
+  ggplot() +
+    geom_line(data = LeftData, aes(x = {{ LeftTime }}, y = {{ LeftY }}),
+              color = "#1E90FF", linewidth = 1) +
+    geom_point(data = RightData, aes(x = {{ RightTime }}, y = Right_scaled),
+               color = "#EE2C2C", size = 2) +
+    # The left axis is reversed only when ReverseLeftAxis = TRUE, and the right axis undoes the rescaling
+    scale_y_continuous(
+      name = "Depth (m)",
+      transform = if (ReverseLeftAxis) "reverse" else "identity",
+      sec.axis = sec_axis(~ (. - Scale$scale_shift) / Scale$scale_factor,
+                          name = RightLabel)
+    ) +
+    labs(x = "Time (s)") +
+    theme_bw() +
+    theme(
+      plot.title = element_text(face = "bold", hjust = 0.5),
+      axis.title = element_text(size = 14),
+      axis.text = element_text(size = 12),
+      axis.title.y.left  = element_text(color = "#1E90FF", size = 14),
+      axis.text.y.left   = element_text(color = "#1E90FF", size = 12),
+      axis.title.y.right = element_text(color = "#EE2C2C", size = 14),
+      axis.text.y.right  = element_text(color = "#EE2C2C", size = 12)
+    )
+}
+```
+
+Try again
+
+```{r}
+RRPlot <- Plot_Dual_Axis_AnyRightAxis(LeftData = Data_Depth_23045_23350, 
+                                      RightData = Data_RR_23045_23350,
+                                      LeftTime = DepthTime, LeftY = Depth,
+                                      RightTime = ECGTime,  RightY = RRInterval,
+                                      RightLabel = "R-R Interval (seconds)")
+RRPlot
+```
+
+**That worked, but I can not image this is the most efficient way to make these plots... Please let me know if there is some package or something you would recommend to get two y-axes! :)**
