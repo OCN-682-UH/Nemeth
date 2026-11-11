@@ -1,0 +1,20 @@
+---
+title: "Week_12_Lecture"
+author: "Cameron Nemeth"
+format:
+  html:
+    code-fold: true              # code hidden by default, with a toggle button
+    code-summary: "Show code"    # customize the button label
+    embed-resources: true # avoids the extra folders by placing images, scripts etc into the HTML itself 
+editor: visual
+warning: false
+theme: minty
+---
+
+Load libraries
+
+```{r}
+library(here)
+library(tidyverse)
+library(tidytext)
+```
