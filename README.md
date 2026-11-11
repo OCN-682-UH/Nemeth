@@ -34,7 +34,7 @@ _[Week_09](https://github.com/OCN-682-UH/Nemeth/tree/main/Week_09)_
 - Factors
 - [Homework HTML](https://cameronnemeth-mbio-612---nemeth---week-9.share.connect.posit.cloud)
 
-_[Week_12](https://github.com/OCN-682-UH/Nemeth/tree/main/Week_09)_
+_[Week_12](https://github.com/OCN-682-UH/Nemeth/tree/main/Week_12)_
 
 - Shiny
 - [Homework HTML](https://cameronnemeth-week12-homework-penguins.share.connect.posit.cloud)
