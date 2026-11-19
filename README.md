@@ -39,7 +39,7 @@ _[Week_12](https://github.com/OCN-682-UH/Nemeth/tree/main/Week_12)_
 - Shiny
 - [Homework HTML](https://cameronnemeth-week12-homework-penguins.share.connect.posit.cloud)
 
-- _[Week_13](https://github.com/OCN-682-UH/Nemeth/tree/main/Week_13)_
+_[Week_13](https://github.com/OCN-682-UH/Nemeth/tree/main/Week_13)_
 
 - Iterative coding
 - [Homework HTML](https://cameronnemeth-week-13-homework-nemeth.share.connect.posit.cloud)
